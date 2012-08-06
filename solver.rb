@@ -1,8 +1,20 @@
 #!/usr/bin/env ruby
 
-# To run:
+# Install necessary gem:
 # $ gem install fast_trie
-# $ ruby solver.rb
+#
+# Then run:
+#
+# $ ruby solver.rb # Take a board from stdin
+# A B C D
+# E F G H
+# I J K L
+# M N QU O
+# <C-d>
+#
+# or
+# $ ruby solver.rb --random # Generate a random board
+#
 # or
 # $ ruby solver.rb --timing # print timing info
 
@@ -40,20 +52,38 @@ DICE = [
   %w[O S C A H P],
   %w[O A B B J O],
 ]
+POSSIBLE_LETTERS = DICE.flatten.uniq
 
 class Board
-  def initialize
-    start = Time.now
-    scrambled_dice = DICE.shuffle
+  def initialize(letters = nil)
     @tiles = Hash.new { |hash, key| hash[key] = {} }
-    dice_index = 0
-    4.times do |y|
-      4.times do |x|
+    if letters
+      rows = letters.split("\n").map(&:strip).reject(&:empty?).map do |row|
+        letters = row.split.map(&:upcase)
+        letters.each do |letter|
+          abort "Bad letter: '#{letter}'" unless POSSIBLE_LETTERS.include? letter
+        end
+        letters
+      end
+      unless rows.size == 4 && rows.all? { |row| row.size == 4 }
+        abort "Invalid board dimensions."
+      end
+      each_position { |x, y| @tiles[x][y] = rows[y][x] }
+    else
+      start = Time.now
+      scrambled_dice = DICE.shuffle
+      dice_index = 0
+      each_position do |x, y|
         @tiles[x][y] = scrambled_dice[dice_index].sample
         dice_index += 1
       end
+      time "generate a random board", start
     end
-    time "generate a random board", start
+  end
+
+  # Iterate through each row and column (across the row first, left to right, starting at the topmost row).
+  def each_position(&block)
+    4.times { |y| 4.times { |x| yield x, y } }
   end
 
   # Get the value (e.g. "R", "QU") at a point (e.g. [1,2])
@@ -89,10 +119,8 @@ class Board
     results = Set.new
 
     start = Time.now
-    (0...4).each do |y|
-      (0...4).each do |x|
-        find_all_words_helper([x, y], word_trie.root, results)
-      end
+    each_position do |x, y|
+      find_all_words_helper([x, y], word_trie.root, results)
     end
     time "find all words once the trie has been created", start
 
@@ -128,9 +156,21 @@ class Board
   end
 end
 
-board = Board.new
+if ARGV.include? "--random"
+  board = Board.new
+else
+  board = Board.new ARGF.read
+end
+
+puts <<-EOS
+Board
+-----
+EOS
 puts board
-puts board.find_all_words
+
+results = board.find_all_words
+puts "There are #{results.size} possible words."
+puts results
 
 time "total", global_start
 if ARGV.include? "--timing"
