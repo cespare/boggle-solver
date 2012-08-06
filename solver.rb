@@ -3,12 +3,24 @@
 # To run:
 # $ gem install fast_trie
 # $ ruby solver.rb
+# or
+# $ ruby solver.rb --timing # print timing info
+
 
 require "trie"
 require "set"
 
+global_start = Time.now
+$timings = []
+def time(description, start)
+  elapsed = Time.now - start
+  $timings << description.rjust(70) + ("  %0.5fs" % elapsed)
+end
+
 MINIMUM_WORD_LENGTH = 4
+start = Time.now
 WORD_LIST = File.read("./sowpods.txt").split("\n").map(&:strip).reject { |word| word.size < MINIMUM_WORD_LENGTH }
+time "read word list from file:", start
 
 DICE = [
   %w[T W O O T A],
@@ -31,6 +43,7 @@ DICE = [
 
 class Board
   def initialize
+    start = Time.now
     scrambled_dice = DICE.shuffle
     @tiles = Hash.new { |hash, key| hash[key] = {} }
     dice_index = 0
@@ -40,6 +53,7 @@ class Board
         dice_index += 1
       end
     end
+    time "generate a random board", start
   end
 
   # Get the value (e.g. "R", "QU") at a point (e.g. [1,2])
@@ -67,16 +81,20 @@ class Board
   end
 
   def find_all_words
+    start = Time.now
     word_trie = Trie.new
     WORD_LIST.each { |word| word_trie.add word }
+    time "insert all the words into a new trie", start
 
     results = Set.new
 
+    start = Time.now
     (0...4).each do |y|
       (0...4).each do |x|
         find_all_words_helper([x, y], word_trie.root, results)
       end
     end
+    time "find all words once the trie has been created", start
 
     # Return the results with longest results first; sort alphabetically among those of the same size.
     results.to_a.sort do |first, second|
@@ -113,3 +131,13 @@ end
 board = Board.new
 puts board
 puts board.find_all_words
+
+time "total", global_start
+if ARGV.include? "--timing"
+  puts <<-EOS
+
+Timings
+-------
+EOS
+  $timings.each { |timing| puts timing }
+end
