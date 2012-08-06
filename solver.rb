@@ -139,7 +139,12 @@ class Board
                             already_traversed_points = [])
     current_tile_value = value_at(current_point)
     current_partial_word = partial_word + current_tile_value
-    current_trie_node = trie_node.walk(current_tile_value)
+    current_trie_node = trie_node
+    # QU is > 1 char, so our solution will be generalized for tile values that are arbitrary strings.
+    current_tile_value.each_char do |char|
+      current_trie_node = current_trie_node.walk(char)
+      break unless current_trie_node
+    end
 
     # Bail if the trie has dead-ended
     return unless current_trie_node
